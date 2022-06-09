@@ -1,4 +1,3 @@
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -10,120 +9,89 @@
 #include "stb_image_write.h"
 
 
-/*
- The heart of your algo
-*/
-//void dfs(int v, int color, int iw, int ih, int* col, unsigned char* mat) {
-  //TODO Найти компоненты связности в  графе при помощи поиска в глубину
-//}
-
-
-/*
-    Let's convert RGB image to gray using magic formula for weights.
-*/
-unsigned char* color_to_gray(unsigned char* Image, int sizeV, int sizeH, int step) {
+void go_to_mono(unsigned char* image, unsigned char* data, int sizeW, int sizeH, int n) {
+    int size = sizeW * sizeH * n;
     int k = 0;
-    unsigned char* grayImage = (unsigned char*)malloc(sizeV*sizeH*sizeof(unsigned char));
-    if (grayImage == NULL) {
-            printf("Memory allocation error at color_to_gray(): %d, %d\n", sizeV, sizeH );
-            return 1;
+    for (int i = 0; i < size; i +=  n) {
+        data[k] = 0.299*image[i] + 0.587*image[i + 1] + 0.114*image[i + 2];
+        k++;
     }
-    int size = sizeV * sizeH*step;
-    for (int i = 0; i < size; i = i + step) {
-        grayImage[k] = 0.299*Image[i] + 0.587*Image[i + 1] + 0.114*Image[i + 2];
-        k = k + 1;
-    }
-    return grayImage;
 
 }
 
-/*
-  If the gray value is less then t_black (threshold for black) - let's make it black
-  If the gray value is more then t_white (threshold for white) - let's make it white
-*/
-void gray_to_bw(unsigned char* Image, int sizeV, int sizeH, int t_black, int t_white) {
+void high_contrast(unsigned char* data, int sizeW, int sizeH, int black, int white) {
     for (int i = 2; i < sizeH-1; i++) {
-        for (int j = 2; j < sizeV-1; j++) {
-            if (Image[sizeV*i+j] < t_black) Image[sizeV*i+j] = 0;
-            if (Image[sizeV*i+j] > t_white) Image[sizeV*i+j] = 255;
+        for (int j = 2; j < sizeW-1; j++) {
+            if (data[sizeW*i+j] < black)
+                data[sizeW*i+j] = 0;
+            if (data[sizeW*i+j] > white)
+                data[sizeW*i+j] = 255;
         }
     }
+}
+
+void dfs(int i, int j, int w, int h, unsigned char* data, int* v, int num){
+    v[w*i+j] = num;
+    if((i>=1) && (i<=h-1) && (j-2>=1) && (j-2<=w-1))
+        if((abs(data[w*i+j]-data[w*i+(j-2)]) <= 60) && (v[w*i+(j-2)] == 0))
+            dfs(i, j-2, w, h, data, v, num);
+
+    if((i-2>=1) && (i-2<=h-1) && (j+1>=1) && (j+1<=w-1))
+        if((abs(data[w*i+j]-data[w*(i-2)+(j+1)]) <= 60) && (v[w*(i-2)+(j+1)] == 0))
+            dfs(i-2, j+1, w, h, data, v, num);
+
+
+    if((i+2>=1) && (i+2<=h-1) && (j+1>=1) && (j+1<=w-1))
+        if((abs(data[w*i+j]-data[w*(i+2)+(j+1)]) <= 60) && (v[w*(i+2)+(j+1)] == 0))
+            dfs(i+2, j+1, w, h, data, v, num);
 }
 
 
 int main() {
-
-    // строка, путь к файлу
     char* inputPath = "hampster.png";
-    int iw, ih, n; //ширина, высота и количество цветовых каналов
-
-    // Загружаем изображение, чтобы получить информацию о ширине, высоте и цветовом канале
-    unsigned char *idata = stbi_load(inputPath, &iw, &ih, &n, 0);
-    if (idata == NULL) {
-        // Ошибка загрузки - сразу же ругаемся и выходим с ненулевым кодом ошибки
-        printf("ERROR: can't read file %s\n", inputPath );
-        return 1;
+    int iw, ih, n;
+    int i=0, j=0, k=0, num=0;
+    unsigned char *input_image = stbi_load(inputPath, &iw, &ih, &n, 0);
+    if (input_image == NULL) {
+        printf("ERROR: can't read file %s\n", inputPath);
+        return 0;
     }
 
-    int i, k, j;
-    k = 0;
-    // Выделим память для дальнейших операций и преобразований
-    unsigned char* odata = (unsigned char*)malloc(ih*iw*n*sizeof(unsigned char));
-    unsigned char* newImage = (unsigned char*)malloc(ih*iw*sizeof(unsigned char));
-    // Не забываем проверять корректность выделения памяти!
-    if ( (odata == NULL) || (newImage == NULL) ) {
+    unsigned char* data = (unsigned char*)malloc(ih*iw*sizeof(unsigned char));
+    int* vert = (int*) malloc(iw*ih*sizeof(int));
+    if (data == NULL || vert == NULL) {
             printf("Memory allocation error at main()" );
-            return 1;
+            return 0;
         }
-
-    newImage = color_to_gray(idata, iw, ih, n);
-
-    //preparation: convert gray to black-white
-    int t_black = 100;
-    int t_white = 160;
-    gray_to_bw(newImage, iw, ih, t_black, t_white);
-    /*
-    Implement these functions yourself if need!
-    MyImage = bw_gauss(MyImage, iw, ih, t_black, t_white);
-    MyImage = bw_sobel(MyImage, iw, ih, t_black, t_white);
-    */
-
-    /*
-     Let's colorize different connectivity components on the picture
-    */
-    /*int col[iw*ih];
-    for (i = 0; i < iw*ih; i++) {
-        col[i] = 0;
-
-}
-    k = 55;
-    //dfs making
-    for (i = 0; i < iw*ih; i++) {
-        if (col[i] == 0) {
-            dfs(i, k, iw, ih, col, newImage);
-            k = k + 50;
+    go_to_mono(input_image, data, iw, ih, n);
+    int black = 100;
+    int white = 150;
+    high_contrast(data, iw, ih, black, white);
+    for(i=0;i<iw*ih;i++)
+        vert[i] = 0;
+    for (i=1;i<=ih-1;i++){
+        for (j=1;j<=iw-1;j++){
+            if(vert[iw*i+j]==0){
+                num++;
+                dfs(i, j, iw, ih, data, vert, num);
+            }
         }
     }
-
-    //now have to color the colors from col
-    for (i = 0; i < iw*ih; i++) {
-        odata[i*n] = 78+col[i]+0.5*col[i-1];
-        odata[i*n+1] = 46+col[i];
-        odata[i*n+2] = 153+col[i];
-        if (n == 4) odata[i*n+3] = 255;
+    unsigned char* odata=(unsigned char*)malloc(iw*ih*n*sizeof(unsigned char));
+    int c;
+    for (i=0; i<ih*iw*n; i+=n){
+        c = vert[k]%74 + vert[k]%13;
+        odata[i] = 3*c-35;
+        odata[i+1] = 4*c+60;
+        odata[i+2] = 5*c+13;
+        odata[i+3] = 255;
+        k++;
     }
-    */
+
+
     char* outputPath = "output.png";
-
     stbi_write_png(outputPath, iw, ih, n, odata, 0);
-    /*
-        Не забываем очищать за собой ранее выделенную память!
-    */
-    free(newImage);
-//    free(MyImage);
-    free(odata);
-    stbi_image_free(idata);
-
+    free(data);
+    stbi_image_free(input_image);
     return 0;
 }
-
