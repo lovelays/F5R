@@ -89,7 +89,7 @@ int main() {
         odata[i+3] = 255;
         k++;
     }
-    char* outputPath = "output.png";
+    char* outputPath = "finaloutput.png";
     stbi_write_png(outputPath, iw, ih, n, odata, 0);
     free(data);
     stbi_image_free(input_image);
